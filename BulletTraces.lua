@@ -27,7 +27,7 @@ pcall(function()
     void  _ZN13CBulletTraces8AddTraceEP7CVectorS1_iP7CEntity(CVec* start, CVec* end, int weaponType, void* pEntity);
     void  _Z22FireOneInstantHitRoundP7CVectorS0_i(CVec* start, CVec* end, int weaponType);
     int   _Z16RwTextureDestroyP9RwTexture(void* tex);
-    void  _ZN13CBulletTraces6RenderEv();
+    void  _ZN8CCoronas6RenderEv();
     ]]
 end)
 
@@ -620,7 +620,7 @@ function main()
             end
             pcall(function() h4() end)
         end,
-        cs("uintptr_t", cs("void*", gt._ZN13CBulletTraces6RenderEv))
+        cs("uintptr_t", cs("void*", gt._ZN8CCoronas6RenderEv))
     )
     hooks[#hooks + 1] = h4
 
