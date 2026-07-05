@@ -1,4 +1,3 @@
-script_name("SensiAim")
 script_author("Deprau")
 
 require("widgets")
@@ -253,7 +252,7 @@ function main()
         initialized=false
     end)
 
-    sampRegisterChatCommand("sensa", menu.switch)
+    sampRegisterChatCommand("sensm", menu.switch)
 
     while true do
         wait(0)
