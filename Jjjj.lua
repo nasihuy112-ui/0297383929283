@@ -1,3 +1,5 @@
+script_author("Deprau")
+
 local ffi = require 'ffi'
 
 ffi.cdef[[
