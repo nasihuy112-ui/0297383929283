@@ -1,4 +1,4 @@
-﻿script_author('Deprau')
+script_author('Deprau')
 local imgui   = require("mimgui")
 local sampev  = require "samp.events"
 local memory  = require("memory")
@@ -456,13 +456,23 @@ void _ZN4CPed15GetBonePositionER5RwV3djb(void* ped, void* out, int boneId, bool 
 local vec3 = ffi.new("Vec3[1]")
 
 local function getBonePos(ped, bone)
-    local ptr = ffi.cast("void*", getCharPointer(ped))
-    gta._ZN4CPed15GetBonePositionER5RwV3djb(ptr, vec3, bone, false)
+    local rawPtr = getCharPointer(ped)
+    if not rawPtr or rawPtr == 0 then return nil end
+
+    local ok, ptr = pcall(ffi.cast, "void*", rawPtr)
+    if not ok or ptr == nil then return nil end
+
+    local success = pcall(gta._ZN4CPed15GetBonePositionER5RwV3djb, ptr, vec3, bone, false)
+    if not success then return nil end
+
     return vec3[0].x, vec3[0].y, vec3[0].z
 end
 
 local function isPlayerAiming()
-    local camMode = camera.aCams[0].nMode
+    if not camera or not camera.aCams then return false end
+    local cam = camera.aCams[0]
+    if not cam then return false end
+    local camMode = cam.nMode
     return camMode == 7 or camMode == 8 or camMode == 51 or camMode == 53
 end
 
@@ -481,7 +491,7 @@ local function isTargetInFov(mx, my, fov)
             for _, bone in ipairs(DATA.daftarTulang) do
                 local x,y,z = getBonePos(ped, bone)
 
-                if isLineOfSightClear(px,py,pz,x,y,z,true,true,false,true,false) then
+                if x and y and z and isLineOfSightClear(px,py,pz,x,y,z,true,true,false,true,false) then
                     local sx,sy = convert3DCoordsToScreen(x,y,z)
 
                     if sx and sy then
@@ -645,7 +655,8 @@ end, function()
 
     local isTarget = false
     if redOnTarget[0] and isPlayerAiming() then
-        isTarget = isTargetInFov(centerX, centerY, DATA.raioFov)
+        local ok, result = pcall(isTargetInFov, centerX, centerY, DATA.raioFov)
+        if ok then isTarget = result end
     end
 
     local color
@@ -709,21 +720,18 @@ function darkgreentheme()
     local colors = style.Colors
     local ImVec2 = imgui.ImVec2
 
-    style.WindowRounding = 18.0
-    style.ItemSpacing = ImVec2(12, 8)
-    style.ItemInnerSpacing = ImVec2(8, 6)
-    style.IndentSpacing = 25.0
-    style.ScrollbarSize = 30.0
-    style.ScrollbarRounding = 10.0
-    style.GrabMinSize = 20.0
-    style.GrabRounding = 20.0
-    style.ChildRounding = 12.0
-    style.FrameRounding = 10.0
+    style.WindowRounding = 18.0 * MDS
+    style.ItemSpacing = ImVec2(12 * MDS, 8 * MDS)
+    style.ItemInnerSpacing = ImVec2(8 * MDS, 6 * MDS)
+    style.IndentSpacing = 25.0 * MDS
+    style.ScrollbarSize = 30.0 * MDS
+    style.ScrollbarRounding = 10.0 * MDS
+    style.GrabMinSize = 20.0 * MDS
+    style.GrabRounding = 20.0 * MDS
+    style.ChildRounding = 12.0 * MDS
+    style.FrameRounding = 10.0 * MDS
     style.WindowTitleAlign = ImVec2(0.5, 0.5)
 end
-
-local dpi = MONET_DPI_SCALE or 1
-local MDS = dpi * 1.0
 
 local http = require("socket.http")
 local ltn12 = require("ltn12")
@@ -761,14 +769,14 @@ imgui.OnInitialize(function()
     config.PixelSnapH = true
 
     if doesFileExist(FONT_PATH) then
-        fontTitle      = io.Fonts:AddFontFromFileTTF(FONT_PATH, 18 * dpi)
-        fontTitleSmall = io.Fonts:AddFontFromFileTTF(FONT_PATH, 11 * dpi)
+        fontTitle      = io.Fonts:AddFontFromFileTTF(FONT_PATH, 18)
+        fontTitleSmall = io.Fonts:AddFontFromFileTTF(FONT_PATH, 11)
     end
 
     local iconRanges = imgui.new.ImWchar[3](faicons.min_range, faicons.max_range, 0)
     fontAwesome = io.Fonts:AddFontFromMemoryCompressedBase85TTF(
         faicons.get_font_data_base85('solid'),
-        20,
+        17,
         config,
         iconRanges
     )
@@ -789,7 +797,7 @@ imgui.OnInitialize(function()
 end)
 
 function imgui.BeginCustomTitle(title, titleSizeY, var, flags)
-    imgui.PushStyleVarVec2(imgui.StyleVar.WindowPadding, imgui.ImVec2(5,5))
+    imgui.PushStyleVarVec2(imgui.StyleVar.WindowPadding, imgui.ImVec2(5 * MDS, 5 * MDS))
     imgui.PushStyleVarFloat(imgui.StyleVar.WindowBorderSize, 0)
 
     local opened = imgui.Begin(title, var, imgui.WindowFlags.NoTitleBar + (flags or 0))
@@ -802,24 +810,25 @@ function imgui.BeginCustomTitle(title, titleSizeY, var, flags)
         dl:AddRectFilled(p, imgui.ImVec2(p.x + size.x, p.y + titleSizeY),
             imgui.GetColorU32Vec4(style.Colors[imgui.Col.TitleBgActive]), style.WindowRounding, 3)
 
-        local titleOffsetY = 2
+        local titleOffsetY = 2 * MDS
 
         if fontTitle then imgui.PushFont(fontTitle) end
         local textSize = imgui.CalcTextSize(title)
 
         local textPos = imgui.ImVec2(
-            p.x + 9,
+            p.x + 9 * MDS,
             p.y + titleSizeY/2 - textSize.y/2 + titleOffsetY
         )
 
         local strokeColor = imgui.ImVec4(0,0,0,1)
         local mainColor = imgui.ImVec4(1,1,1,1)
 
+        local strokeOff = MDS
         local offsets = {
-            imgui.ImVec2(-1,-1),
-            imgui.ImVec2(-1,1),
-            imgui.ImVec2(1,-1),
-            imgui.ImVec2(1,1)
+            imgui.ImVec2(-strokeOff,-strokeOff),
+            imgui.ImVec2(-strokeOff, strokeOff),
+            imgui.ImVec2( strokeOff,-strokeOff),
+            imgui.ImVec2( strokeOff, strokeOff)
         }
 
         for _, offset in ipairs(offsets) do
@@ -833,8 +842,8 @@ function imgui.BeginCustomTitle(title, titleSizeY, var, flags)
         if fontTitle then imgui.PopFont() end
 
         local radius = titleSizeY * 0.38
-        local padding = 6
-        local yOffset = 2
+        local padding = 6 * MDS
+        local yOffset = 2 * MDS
 
         local closeCenter = imgui.ImVec2(
             p.x + size.x - radius - padding,
@@ -882,14 +891,14 @@ function imgui.BeginCustomTitle(title, titleSizeY, var, flags)
 
         local iconPos = imgui.ImVec2(
             saveCenter.x - iconSize.x/2,
-            saveCenter.y - iconSize.y/2 + 5
+            saveCenter.y - iconSize.y/2 + 5 * MDS
         )
 
         local iconStrokeOffsets = {
-            imgui.ImVec2(-1,-1),
-            imgui.ImVec2(-1,1),
-            imgui.ImVec2(1,-1),
-            imgui.ImVec2(1,1)
+            imgui.ImVec2(-MDS,-MDS),
+            imgui.ImVec2(-MDS, MDS),
+            imgui.ImVec2( MDS,-MDS),
+            imgui.ImVec2( MDS, MDS)
         }
 
         for _, offset in ipairs(iconStrokeOffsets) do
@@ -982,7 +991,7 @@ imgui.Checkbox("Hide Default Crosshair", disablePatch)
     imgui.SameLine()
 
     local y = imgui.GetCursorPosY()
-    imgui.SetCursorPosY(y + 5)
+    imgui.SetCursorPosY(y + 5 * MDS)
 
     if fontTitleSmall then imgui.PushFont(fontTitleSmall) end
     imgui.Text(label)
@@ -992,40 +1001,40 @@ end
 row("Crosshair Color", crosshair_color)
 imgui.Spacing()
 
-imgui.SetNextItemWidth(330)
+imgui.SetNextItemWidth(240 * MDS)
 imgui.SliderFloat("##shadow_alpha", shadow_alpha, 0.0, 1.0, "Shadow %.2f")
 
-imgui.SetNextItemWidth(330)
+imgui.SetNextItemWidth(240 * MDS)
 imgui.SliderFloat("##shadow_thickness", shadow_thickness, 0.1, 10.0, "Thickness %.2f")
 
-imgui.SetNextItemWidth(330)
+imgui.SetNextItemWidth(240 * MDS)
 imgui.SliderFloat("##BaseScalehi", height_scale, 0.1, 2.0, "H/W %.2f")
 
-imgui.SetNextItemWidth(330)
+imgui.SetNextItemWidth(240 * MDS)
 imgui.SliderFloat("##BaseScale", base_scale, 0.00, 0.5, "Scale %.2f")
 
-imgui.SetNextItemWidth(330)
+imgui.SetNextItemWidth(240 * MDS)
 imgui.SliderFloat("##PosX", pos_x, -1500, 1500, "PosX %.0f")
 
-imgui.SetNextItemWidth(330)
+imgui.SetNextItemWidth(240 * MDS)
 imgui.SliderFloat("##PosY", pos_y, -1500, 1500, "PosY %.0f")
         imgui.EndChild()
         local url = "https://youtube.com/@deprauu"
 
 local windowWidth = imgui.GetWindowSize().x
 local textWidth = imgui.CalcTextSize(url).x
-local offsetX = 5
+local offsetX = 5 * MDS
 
 imgui.SetCursorPosX((windowWidth - textWidth) / 2 + offsetX)
 
-imgui.SetWindowFontScale(1.0)
+imgui.SetWindowFontScale(1.2)
 imgui.TextColored(imgui.ImVec4(1,1,1,1), url)
 
 if imgui.IsItemHovered() and imgui.IsMouseClicked(0) then
     os.execute('start ' .. url)
 end
 
-imgui.SetWindowFontScale(1.0)
+imgui.SetWindowFontScale(1.2)
 
             if imgui.IsItemClicked() then
                 openLink(url)
@@ -1040,14 +1049,14 @@ function imgui.Checkbox(str_id, bool)
     local style = imgui.GetStyle()
     local oldSpacingY = style.ItemSpacing.y
 
-    style.ItemSpacing.y = 3
+    style.ItemSpacing.y = 3 * MDS
 
     local label = str_id
     local result = originalCheckbox("##"..label, bool)
     imgui.SameLine()
 
     local y = imgui.GetCursorPosY()
-    imgui.SetCursorPosY(y + 5)
+    imgui.SetCursorPosY(y + 5 * MDS)
 
     if fontTitleSmall then imgui.PushFont(fontTitleSmall) end
     imgui.Text(label)
